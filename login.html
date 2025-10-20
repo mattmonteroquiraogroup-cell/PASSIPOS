@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin Login - PALUTO POS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --background-dark: #1A1A1A;
+    --surface-dark: #242424;
+    --border-color: #333333;
+    --text-primary: #F5F5F5;
+    --accent-orange: #f66a11;
+    --accent-orange-hover: #e05e0b;
+  }
+  body {
+    font-family: 'Poppins', sans-serif;
+    margin: 0;
+    background: var(--background-dark);
+    color: var(--text-primary);
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .login-container {
+    background: var(--surface-dark);
+    padding: 40px;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 400px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    text-align: center;
+  }
+  h1 {
+    color: var(--text-primary);
+    margin-top: 0;
+    margin-bottom: 30px;
+  }
+  .input-group {
+    margin-bottom: 20px;
+    text-align: left;
+  }
+  label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  input {
+    width: 100%;
+    padding: 12px;
+    background: var(--background-dark);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 16px;
+  }
+  input:focus {
+    outline: none;
+    border-color: var(--accent-orange);
+  }
+  .btn {
+    background: var(--accent-orange);
+    color: #fff;
+    border: none;
+    padding: 14px;
+    width: 100%;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 16px;
+    transition: background-color 0.2s ease;
+  }
+  .btn:hover { background: var(--accent-orange-hover); }
+</style>
+</head>
+<body>
+
+<div class="login-container">
+  <h1>Admin Dashboard Login</h1>
+<form method="POST" action="/login">
+  <div class="input-group">
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" required>
+  </div>
+  <div class="input-group">
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" required>
+  </div>
+  <button type="submit" class="btn">Log In</button>
+  {% if error %}
+  <p style="color: #ff5c5c; margin-top: 10px;">{{ error }}</p>
+  {% endif %}
+</form>
+</div>
+</body>
+</html>

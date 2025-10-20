@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PALUTO POS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  /* --- MODERN PALUTO THEME --- */
+  * { box-sizing: border-box; font-family: "Poppins", sans-serif; }
+  
+  :root {
+    --background-dark: #1A1A1A;
+    --surface-dark: #242424;
+    --border-color: #333333;
+    --text-primary: #F5F5F5;
+    --text-secondary: #A0A0A0;
+    --accent-orange: #f66a11;
+    --accent-orange-hover: #e05e0b;
+  }
+
+  body {
+    margin: 0;
+    background: var(--background-dark);
+    color: var(--text-primary);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--surface-dark); }
+  ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+
+  header {
+    background: var(--surface-dark);
+    color: var(--text-primary);
+    padding: 12px 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 500;
+    border-bottom: 1px solid var(--border-color);
+  }
+  header b { color: var(--accent-orange); }
+
+  .btn {
+    background: var(--accent-orange);
+    color: #fff;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
+  }
+  .btn:hover { background: var(--accent-orange-hover); }
+
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  .left-panel {
+    flex: 0.9;
+    background: var(--surface-dark);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .category-header {
+    font-family: 'Bebas Neue', sans-serif;
+    text-align: center;
+    padding: 15px;
+    font-size: 24px;
+    letter-spacing: 1px;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .category-list { display: flex; flex-direction: column; overflow-y: auto; }
+  .category-item {
+    padding: 14px;
+    text-align: center;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s, color 0.2s;
+    color: var(--text-secondary);
+  }
+  .category-item:hover { background-color: rgba(246, 106, 23, 0.1); }
+  .category-item.active { background: var(--accent-orange); color: #ffffff; }
+
+  .menu-panel { flex: 2.2; padding: 25px; overflow-y: auto; }
+  .menu-title {
+    font-family: 'Bebas Neue', sans-serif;
+    color: var(--text-primary);
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-weight: 400;
+    font-size: 28px;
+    letter-spacing: 1px;
+  }
+  .menu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 18px;
+  }
+
+  .selection-card {
+    background: var(--surface-dark);
+    padding: 25px;
+    border-radius: 8px;
+    text-align: center;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .selection-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent-orange);
+  }
+
+  .menu-item {
+    background: var(--surface-dark);
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .menu-item:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent-orange);
+  }
+  .menu-item .item-name {
+    font-weight: 600; color: #fff; font-size: 16px;
+    line-height: 1.3; margin-bottom: 8px;
+  }
+  .menu-item p { margin: 0 0 10px 0; color: var(--text-secondary); font-size: 14px; }
+
+  .receipt-panel {
+    width: 380px;
+    background: var(--surface-dark);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    border-left: 1px solid var(--border-color);
+  }
+  .receipt-panel h2 {
+    font-family: 'Bebas Neue', sans-serif; color: var(--text-primary);
+    text-align: center; margin-top: 0; font-weight: 400;
+    font-size: 28px; letter-spacing: 1px;
+  }
+  .receipt-panel table {
+    width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 15px;
+  }
+  .receipt-panel th, .receipt-panel td {
+    border-bottom: 1px solid var(--border-color); padding: 10px 6px; text-align: center;
+  }
+  .receipt-panel th { font-weight: 600; color: var(--text-secondary); }
+  .receipt-panel .total {
+    font-size: 20px; font-weight: 600; color: var(--text-primary);
+    text-align: right; margin-top: auto; padding-top: 20px;
+  }
+  .receipt-panel .total span { color: var(--accent-orange); }
+
+  .btn.save {
+    font-weight: 600; border-radius: 8px; padding: 14px 24px;
+    font-size: 16px; width: 100%; margin-top: 15px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>PALUTO POS</div>
+  <div>
+      Table <b>{{ table_id }}</b> | 
+      TXN: <b>{{ txn_id }}</b> | 
+      Type: <b style="text-transform: capitalize;">{{ order_type }}</b>
+  </div>
+  <button class="btn" onclick="cancelAndReturn()">Back to Tables</button>
+</header>
+
+<div class="main">
+  <div class="left-panel">
+    <div class="category-header">Categories</div>
+    <div id="categoryList" class="category-list"></div>
+  </div>
+  <div class="menu-panel">
+    <h2 id="menuTitle" class="menu-title">Select a Category</h2>
+    <div id="menuGrid" class="menu-grid"></div>
+  </div>
+  <div class="receipt-panel">
+    <h2>Receipt</h2>
+    <table id="receiptTbl">
+      <thead>
+        <tr>
+          <th>Item</th><th>UOM</th><th>Qty</th>
+          <th>Weight (g)</th><th>Price</th><th>Subtotal</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div class="total">Total: <span id="totalTxt">₱0.00</span></div>
+    <button class="btn save" onclick="checkout()">Save Order</button>
+  </div>
+</div>
+
+<script>
+/* ───────────────────────────────
+   PALUTO POS MAIN SCRIPT (Fixed Flow)
+──────────────────────────────── */
+const txn_id = "{{ txn_id }}";
+const order_type = "{{ order_type }}";
+const table_id = "{{ table_id }}";
+let products = [];
+let orderList = [];
+
+let currentCategory = null;
+let selectedType = null;
+let selectedVariety = null;
+let selectedState = null;
+
+/* ─────────────── FETCH PRODUCTS ─────────────── */
+fetch('/fetch_products')
+  .then(res => res.json())
+  .then(data => {
+    products = data;
+    const cats = [...new Set(products.map(p => p.category))];
+    const container = document.getElementById('categoryList');
+    container.innerHTML = cats.map(c =>
+      `<div class="category-item" onclick="selectCategory('${c}')">${c}</div>`
+    ).join('');
+  })
+  .catch(err => console.error("❌ Fetch products error:", err));
+
+/* ─────────────── CATEGORY SELECTION ─────────────── */
+function selectCategory(cat) {
+  currentCategory = cat;
+  selectedType = null;
+  selectedVariety = null;
+  selectedState = null;
+
+  document.querySelectorAll('.category-item').forEach(c => c.classList.remove('active'));
+  const active = [...document.querySelectorAll('.category-item')].find(e => e.textContent === cat);
+  if (active) active.classList.add('active');
+
+  renderTypes(cat);
+}
+
+/* ─────────────── TYPE SELECTION ─────────────── */
+function renderTypes(category) {
+  document.getElementById('menuTitle').textContent = `Select a Type for ${category}`;
+  const grid = document.getElementById('menuGrid');
+
+  const types = [...new Set(products
+    .filter(p => p.category === category)
+    .map(p => p.type)
+  )];
+
+  grid.innerHTML = types.map(type => `
+    <div class="selection-card" onclick="selectType('${type}')">${type}</div>
+  `).join('');
+}
+
+/* ─────────────── TYPE LOGIC FIXED ─────────────── */
+function selectType(type) {
+  selectedType = type;
+
+  const items = products.filter(p => p.category === currentCategory && p.type === type);
+
+  const varieties = [...new Set(items.flatMap(p => [p.variety_1, p.variety_2]).filter(v => v))];
+  const states = [...new Set(items.flatMap(p => [p.state_1, p.state_2]).filter(s => s))];
+
+  // ✅ CASES
+  if (varieties.length > 0 && states.length > 0) {
+    // Variety + State → Show variety first
+    renderVarieties(currentCategory, type);
+  } else if (varieties.length > 0 && states.length === 0) {
+    // Only Variety → Variety → Luto
+    renderVarieties(currentCategory, type);
+  } else if (varieties.length === 0 && states.length > 0) {
+    // Only State → State → Luto
+    renderStates(currentCategory, type, null);
+  } else {
+    // No Variety / State → Direct to Luto
+    renderLutoOptions(currentCategory, type, null, null);
+  }
+}
+
+/* ─────────────── VARIETY SELECTION ─────────────── */
+function renderVarieties(category, type) {
+  document.getElementById('menuTitle').textContent = `${type} - Select a Variety`;
+  const grid = document.getElementById('menuGrid');
+
+  const varieties = [...new Set(products
+    .filter(p => p.category === category && p.type === type)
+    .flatMap(p => [p.variety_1, p.variety_2])
+    .filter(v => v)
+  )];
+
+  let backButton = `<div class="selection-card" onclick="renderTypes('${category}')">← Back to Types</div>`;
+
+  grid.innerHTML = backButton + varieties.map(variety => `
+    <div class="selection-card" onclick="selectVariety('${variety}')">${variety}</div>
+  `).join('');
+}
+
+/* ─────────────── VARIETY LOGIC FIXED ─────────────── */
+function selectVariety(variety) {
+  selectedVariety = variety;
+
+  const hasStates = products.some(p =>
+    p.category === currentCategory &&
+    p.type === selectedType &&
+    (p.variety_1 === variety || p.variety_2 === variety) &&
+    (p.state_1 || p.state_2)
+  );
+
+  if (hasStates) {
+    // Variety + State → Next step: State
+    renderStates(currentCategory, selectedType, variety);
+  } else {
+    // Variety only → Skip state → Go Luto
+    renderLutoOptions(currentCategory, selectedType, variety, null);
+  }
+}
+
+/* ─────────────── STATE SELECTION ─────────────── */
+function renderStates(category, type, variety) {
+  let title = variety ? `${type} (${variety})` : type;
+  document.getElementById('menuTitle').textContent = `${title} - Select a State`;
+  const grid = document.getElementById('menuGrid');
+
+  const productStates = products
+    .filter(p => {
+      const categoryMatch = p.category === category;
+      const typeMatch = p.type === type;
+      const varietyMatch = variety ? (p.variety_1 === variety || p.variety_2 === variety) : true;
+      return categoryMatch && typeMatch && varietyMatch;
+    })
+    .flatMap(p => [p.state_1, p.state_2])
+    .filter(state => state);
+
+  const uniqueStates = [...new Set(productStates)];
+
+  const hasVarieties = products.some(p => p.category === category && p.type === type && (p.variety_1 || p.variety_2));
+  let backButton = hasVarieties
+    ? `<div class="selection-card" onclick="renderVarieties('${category}', '${type}')">← Back to Varieties</div>`
+    : `<div class="selection-card" onclick="renderTypes('${category}')">← Back to Types</div>`;
+
+  grid.innerHTML = backButton + uniqueStates.map(state => `
+    <div class="selection-card" onclick="selectState('${state}')">${state}</div>
+  `).join('');
+}
+
+function selectState(state) {
+  selectedState = state;
+  renderLutoOptions(currentCategory, selectedType, selectedVariety, state);
+}
+
+/* ─────────────── LUTO OPTIONS ─────────────── */
+function renderLutoOptions(category, type, variety, state) {
+  let title;
+  if (variety && state) title = `${type} (${variety}, ${state})`;
+  else if (variety) title = `${type} (${variety})`;
+  else if (state) title = `${type} (${state})`;
+  else title = `${type}`;
+  document.getElementById('menuTitle').textContent = `${title} - Select Cooking Style`;
+
+  const grid = document.getElementById('menuGrid');
+
+  const finalOptions = products.filter(p => {
+    const categoryMatch = p.category === category;
+    const typeMatch = p.type === type;
+    const varietyMatch = variety
+      ? (p.variety_1 === variety || p.variety_2 === variety)
+      : (!p.variety_1 && !p.variety_2);
+    const stateMatch = state
+      ? (p.state_1 === state || p.state_2 === state)
+      : (!p.state_1 && !p.state_2);
+    return categoryMatch && typeMatch && varietyMatch && stateMatch;
+  });
+
+  let backBtn = '';
+  if (state) backBtn = `<div class="selection-card" onclick="renderStates('${category}', '${type}', '${variety || ''}')">← Back to States</div>`;
+  else if (variety) backBtn = `<div class="selection-card" onclick="renderVarieties('${category}', '${type}')">← Back to Varieties</div>`;
+  else backBtn = `<div class="selection-card" onclick="renderTypes('${category}')">← Back to Types</div>`;
+
+  grid.innerHTML =
+    backBtn +
+    finalOptions.map(p => `
+      <div class="menu-item">
+        <div class="item-name">${p.luto}</div>
+        <p><b>₱${p.price.toFixed(2)}</b> / ${p.uom}</p>
+        <button class="btn" onclick="addItem(${p.id}, '${p.uom}', ${p.price}, '${buildFullName(p)}')">Add</button>
+      </div>
+    `).join('');
+}
+
+/* ─────────────── HELPERS ─────────────── */
+function buildFullName(product) {
+  const nameParts = [product.type, product.variety_1, product.variety_2, product.state_1, product.state_2, product.luto];
+  return nameParts.filter(part => part).join(' ');
+}
+
+/* ─────────────── RECEIPT SYSTEM ─────────────── */
+async function addItem(id, uom, price, fullItemName) {
+  let grams = 0;
+  let qty = 1;
+
+  if (uom.toUpperCase() === 'KG') {
+    const gramsInput = prompt(`Enter weight (grams) for ${fullItemName}:`, "1000");
+    if (!gramsInput || gramsInput.trim() === "") return;
+    grams = parseFloat(gramsInput);
+    if (isNaN(grams) || grams <= 0) {
+      alert("Invalid weight entered!");
+      return;
+    }
+  }
+
+  const existingItem = orderList.find(i => i.product_id === id && i.uom.toUpperCase() === 'SERVE');
+  if (existingItem) existingItem.qty += qty;
+  else orderList.push({ product_id: id, uom, price, qty, grams, order_type });
+
+  await loadReceipt();
+}
+
+/* ─────────────── RECEIPT RENDER ─────────────── */
+async function loadReceipt() {
+  const tbody = document.querySelector("#receiptTbl tbody");
+  tbody.innerHTML = "";
+  let total = 0;
+
+  orderList.forEach(it => {
+    const subtotal = it.uom.toUpperCase() === "KG"
+      ? (it.grams / 1000) * it.price
+      : it.qty * it.price;
+    total += subtotal;
+    tbody.innerHTML += `
+      <tr>
+        <td>${it.product_id}</td>
+        <td>${it.uom}</td>
+        <td>${it.qty}</td>
+        <td>${it.uom.toUpperCase() === "KG" ? it.grams : "-"}</td>
+        <td>₱${it.price.toFixed(2)}</td>
+        <td>₱${subtotal.toFixed(2)}</td>
+      </tr>`;
+  });
+
+  document.getElementById("totalTxt").textContent = "₱" + total.toFixed(2);
+}
+
+/* ─────────────── NAVIGATION ─────────────── */
+async function cancelAndReturn() {
+  if (confirm("Are you sure you want to leave? Unsaved items will be lost.")) {
+    window.location.href = "/tables";
+  }
+}
+
+async function checkout() {
+  if (!orderList.length) {
+    alert("No items to save!");
+    return;
+  }
+
+  try {
+    const res = await fetch(`/checkout/${txn_id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ table_id, order_type, orders: orderList })
+    });
+    const data = await res.json();
+    if (data.error) alert("⚠️" + data.error);
+    else {
+      alert(data.message || "Order saved successfully!");
+      window.location.href = `/payment/${txn_id}`;
+    }
+  } catch (err) {
+    console.error("Checkout error:", err);
+    alert("Failed to save order. Please try again.");
+  }
+}
+
+window.addEventListener("DOMContentLoaded", loadReceipt);
+</script>
+</body>
+</html>

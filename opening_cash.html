@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Set Opening Cash</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  body {
+    background: #3D2B1F; color: #F5F5DC; font-family: 'Poppins', sans-serif;
+    display: flex; align-items: center; justify-content: center; height: 100vh;
+  }
+  .box {
+    background: #6F4E37; padding: 30px; border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5); text-align: center; width: 360px;
+  }
+  h2 { color: #FFD700; margin-bottom: 15px; }
+  table {
+    width: 100%; color: #fff; border-collapse: collapse; margin-bottom: 10px;
+  }
+  td {
+    padding: 6px;
+  }
+  input[type="number"] {
+    width: 60px; text-align: center; padding: 6px; border-radius: 6px; border: none;
+  }
+  .total-box {
+    margin-top: 10px; padding: 10px; background: #8B4513; border-radius: 8px;
+    font-weight: 600; color: #FFD700; font-size: 16px;
+  }
+  button {
+    padding: 10px 20px; background: #f66a11; color: white;
+    border: none; border-radius: 6px; font-weight: 600; cursor: pointer;
+    margin-top: 15px;
+  }
+  button:hover { background: #e65c00; }
+  .msg { margin-top: 10px; color: #FFD700; font-size: 14px; }
+</style>
+</head>
+<body>
+  <div class="box">
+    <h2>Opening Cash Denominations</h2>
+
+    {% if existing %}
+      <p class="msg">You already set ₱{{ existing['opening_amount'] }} for today.</p>
+      <button onclick="window.location.href='/tables'">Go to Tables</button>
+    {% else %}
+<form method="POST" action="/opening_cash" onsubmit="return calculateTotalBeforeSubmit()">
+  <table>
+    <tr><td>₱1000:</td><td><input type="number" id="d1000" name="d1000" min="0" value="0" onchange="calculateTotal()"></td></tr>
+    <tr><td>₱500:</td><td><input type="number" id="d500" name="d500" min="0" value="0" onchange="calculateTotal()"></td></tr>
+    <tr><td>₱200:</td><td><input type="number" id="d200" name="d200" min="0" value="0" onchange="calculateTotal()"></td></tr>
+    <tr><td>₱100:</td><td><input type="number" id="d100" name="d100" min="0" value="0" onchange="calculateTotal()"></td></tr>
+    <tr><td>₱50:</td><td><input type="number" id="d50" name="d50" min="0" value="0" onchange="calculateTotal()"></td></tr>
+    <tr><td>₱20:</td><td><input type="number" id="d20" name="d20" min="0" value="0" onchange="calculateTotal()"></td></tr>
+    <tr><td>₱10:</td><td><input type="number" id="d10" name="d10" min="0" value="0" onchange="calculateTotal()"></td></tr>
+    <tr><td>₱5:</td><td><input type="number" id="d5" name="d5" min="0" value="0" onchange="calculateTotal()"></td></tr>
+    <tr><td>₱1:</td><td><input type="number" id="d1" name="d1" min="0" value="0" onchange="calculateTotal()"></td></tr>
+  </table>
+
+  <div class="total-box">Total: ₱<span id="totalAmount">0.00</span></div>
+
+  <!-- Hidden field to submit total -->
+  <input type="hidden" name="opening_amount" id="opening_amount">
+
+  <button type="submit">Save Opening Cash</button>
+</form>
+
+    {% endif %}
+  </div>
+
+<script>
+function calculateTotal() {
+  const values = {
+    1000: document.getElementById('d1000').value || 0,
+    500: document.getElementById('d500').value || 0,
+    200: document.getElementById('d200').value || 0,
+    100: document.getElementById('d100').value || 0,
+    50: document.getElementById('d50').value || 0,
+    20: document.getElementById('d20').value || 0,
+    10: document.getElementById('d10').value || 0,
+    5: document.getElementById('d5').value || 0,
+    1: document.getElementById('d1').value || 0
+  };
+
+  let total = 0;
+  for (const denom in values) {
+    total += parseInt(values[denom]) * parseInt(denom);
+  }
+
+  document.getElementById('totalAmount').textContent = total.toFixed(2);
+  document.getElementById('opening_amount').value = total.toFixed(2);
+}
+
+function calculateTotalBeforeSubmit() {
+  calculateTotal();
+  return true;
+}
+</script>
+</body>
+</html>

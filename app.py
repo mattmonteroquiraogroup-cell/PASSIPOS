@@ -2,10 +2,11 @@
 # PALUTO POS SYSTEM — CLEANED & COMMENTED VERSION
 # ============================================================
 
-from flask import Flask, make_response, render_template, request, redirect, url_for, jsonify, Response
+from flask import Flask, make_response, render_template, request, redirect, url_for, jsonify, Response, session
 import sqlite3, random, string, io, csv
 
 app = Flask(__name__)
+app.secret_key = "super_secret_paluto_key"  # any random string
 DB = "paluto.db"
 
 
@@ -14,21 +15,85 @@ DB = "paluto.db"
 # ============================================================
 def get_db():
     """Establishes and returns an SQLite database connection."""
-    conn = sqlite3.connect(DB, timeout=10)
+    conn = sqlite3.connect(DB, timeout=30, check_same_thread=False)
     conn.row_factory = sqlite3.Row  # Return rows as dictionaries
     return conn
+
+# ============================================================
+# 🔹 UNIVERSAL LOGIN (Admin + Cashier)
+# ============================================================
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    """Logs in either Admin or Cashier depending on credentials."""
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM user_credentials WHERE username=? AND password=?", (username, password))
+        user = cur.fetchone()
+        conn.close()
+
+        if user:
+            # ✅ Save user info in session
+            session["user_id"] = user["id"]
+            session["username"] = user["username"]
+            session["name"] = user["name"]
+            session["role"] = user["role"]
+
+            if user["role"] == "admin":
+                return redirect(url_for("dashboard_page"))
+            elif user["role"] == "cashier":
+                
+                return redirect(url_for("tables"))  # cashier starts at tables
+        else:
+            return render_template("login.html", error="Invalid username or password.")
+
+    return render_template("login.html")
+
+# ============================================================
+# 🔹 LOGOUT
+# ============================================================
+@app.route("/logout")
+def logout():
+    """Logs out the current user."""
+    session.clear()
+    return redirect(url_for("login"))
+
+@app.route("/")
+def home():
+    """Always start the system at the login page."""
+    return redirect(url_for("login"))
 
 
 # ============================================================
 # 🔹 MAIN TABLE SELECTION (HOME PAGE)
 # ============================================================
-@app.route("/")
+@app.route("/tables")
 def tables():
     """Displays all tables (1–50 + 101–107) and their current order status."""
+
+    # 🔒 Require login as cashier before accessing
+    if "role" not in session or session["role"] != "cashier":
+        return redirect(url_for("login"))
+
+    # ✅ Ensure opening cash is set for today before accessing tables
     conn = get_db()
     cur = conn.cursor()
+    cur.execute("""
+        SELECT * FROM daily_opening_cash
+        WHERE username = ? AND date_opened = date('now')
+    """, (session["username"],))
+    opening_cash = cur.fetchone()
+    if not opening_cash:
+        conn.close()
+        return redirect(url_for("opening_cash"))
 
-    # Get all active or served tables
+    # 🔍 Debug (optional): Check if the session name is being stored
+    print("Session name:", session.get("name"))
+
+    # 🪑 Get all active or served tables from sales
     cur.execute("""
         SELECT DISTINCT table_id, transaction_id, status, order_mode
         FROM sales
@@ -37,7 +102,8 @@ def tables():
     sales = cur.fetchall()
 
     all_tables = []
-    # Regular tables 1–50
+
+    # 🍽️ Regular tables (1–50)
     for i in range(1, 51):
         match = next((s for s in sales if s["table_id"] == i), None)
         all_tables.append({
@@ -47,8 +113,8 @@ def tables():
             "order_mode": match["order_mode"] if match else None
         })
 
-    # Kubo huts 101–107
-    for i in range(101, 107):
+    # 🛖 Kubo huts (101–107)
+    for i in range(101, 108):  # fixed upper bound (include 107)
         match = next((s for s in sales if s["table_id"] == i), None)
         all_tables.append({
             "table_id": i,
@@ -58,7 +124,91 @@ def tables():
         })
 
     conn.close()
-    return render_template("tables.html", tables=all_tables)
+
+    # ✅ Pass opening cash to template (optional display in tables.html)
+    return render_template("tables.html", tables=all_tables, opening_cash=opening_cash)
+
+
+
+# ============================================================
+# 🔹 OPENING CASH SETUP
+# ============================================================
+@app.route("/opening_cash", methods=["GET", "POST"])
+def opening_cash():
+    if "role" not in session or session["role"] != "cashier":
+        return redirect(url_for("login"))
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Check if already set today for this user
+    cur.execute("""
+        SELECT * FROM daily_opening_cash
+        WHERE username = ? AND date_opened = date('now')
+    """, (session["username"],))
+    existing = cur.fetchone()
+
+    if request.method == "POST":
+        print("🧾 FORM SUBMITTED:", request.form)  # debug
+
+        # total from hidden field
+        raw_amount = (request.form.get("opening_amount") or "").strip()
+        try:
+            amount = float(raw_amount) if raw_amount else 0.0
+        except (ValueError, TypeError):
+            amount = 0.0
+
+        if existing:
+            conn.close()
+            return render_template("opening_cash.html",
+                                   existing=existing,
+                                   message="Opening cash already set for today.")
+
+        # read denomination counts from form (the inputs must have name="d1000", etc.)
+        denom_keys = [1000, 500, 200, 100, 50, 20, 10, 5, 1]
+        denom_dict = {}
+        for n in denom_keys:
+            try:
+                denom_dict[f"d{n}"] = int(request.form.get(f"d{n}", 0))
+            except (ValueError, TypeError):
+                denom_dict[f"d{n}"] = 0
+
+        # figure out which denom columns actually exist in the DB
+        cur.execute("PRAGMA table_info(daily_opening_cash)")
+        cols = {row["name"] for row in cur.fetchall()}
+
+        # base columns always saved
+        col_names = ["user_id", "username", "opening_amount"]
+        params = [session["user_id"], session["username"], amount]
+
+        # add only denomination columns that exist
+        for k in denom_dict.keys():
+            if k in cols:
+                col_names.append(k)
+                params.append(denom_dict[k])
+
+        # Build INSERT dynamically
+        placeholders = ", ".join(["?"] * len(col_names))
+        col_list = ", ".join(col_names)
+        sql = f"INSERT INTO daily_opening_cash ({col_list}) VALUES ({placeholders})"
+
+        try:
+            cur.execute(sql, params)
+            conn.commit()
+        except sqlite3.OperationalError as e:
+            conn.rollback()
+            print("❌ SQLite error:", e)
+            return render_template("opening_cash.html",
+                                   existing=None,
+                                   message="Database is busy or columns missing. Please try again.")
+        finally:
+            conn.close()
+
+        print("✅ Opening cash saved:", amount, "| Cols:", col_list)
+        return redirect(url_for("tables"))
+
+    conn.close()
+    return render_template("opening_cash.html", existing=existing)
 
 
 # ============================================================
@@ -78,8 +228,12 @@ def start_order():
 # ============================================================
 @app.route("/pos")
 def pos():
-    """Renders the POS page for a specific table and transaction."""
+    # 🔒 Require login as cashier
+    if "role" not in session or session["role"] != "cashier":
+        return redirect(url_for("login"))
+
     table_id = request.args.get("table_id")
+
     txn_id = request.args.get("txn_id")
     order_type = request.args.get("order_type", "regular")
 
@@ -403,7 +557,8 @@ def login_page():
 
 @app.route("/dashboard.html")
 def dashboard_page():
-    """Admin analytics dashboard."""
+    if "role" not in session or session["role"] != "admin":
+        return redirect(url_for("login"))
     return render_template("dashboard.html")
 
 

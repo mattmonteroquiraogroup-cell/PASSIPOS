@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PALUTO Table Selector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+  /* --- MAIN THEME --- */
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Poppins", sans-serif; margin: 0; background: #3D2B1F; color: #F5F5DC;
+    text-align: center; height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+  }
+  header {
+    font-family: 'Bebas Neue', sans-serif; background: #8B4513; padding: 8px 25px;
+    font-size: 28px; font-weight: 400; letter-spacing: 2px; color: #FFD700;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.6); box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+    border-bottom: 3px solid #6F4E37; display: flex; justify-content: space-between; align-items: center;
+  }
+  .subtitle { color: #E0E0E0; font-size: 13px; margin-bottom: 10px; letter-spacing: 0.5px; }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); gap: 12px;
+    padding: 12px; width: 100%; max-width: 1600px; margin: 0 auto; flex: 1;
+  }
+  .table-card {
+    background: #6F4E37; border-radius: 8px; border: 2px solid #8B4513;
+    box-shadow: inset 0 0 8px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3); padding: 10px 8px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    color: white; transition: 0.3s ease;
+  }
+  .table-card:hover { transform: translateY(-4px); border-color: #FFD700; }
+  .table-name { font-size: 16px; font-weight: 600; margin-bottom: 5px; color: #FFFFFF; }
+  .status { font-size: 12px; color: #F5F5DC; margin-bottom: 8px; word-break: break-all; }
+  .btn {
+    border: none; border-radius: 6px; padding: 6px 12px; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: 0.3s; color: #333; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  }
+  .btn:hover { filter: brightness(1.1); }
+  .start { background: linear-gradient(145deg, #f66a11, #e65c00); color: white; }
+  .pay { background: linear-gradient(145deg, #00BFFF, #1E90FF); color: white; }
+  .occupied { background: #5C4033; opacity: 0.9; }
+  .occupied .table-name { color: #FFD700; }
+  footer { background: #000000; color: #aaa; padding: 8px; font-size: 12px; border-top: 2px solid #333; }
+
+  /* --- UNLI HIGHLIGHT --- */
+  .table-card.unli-order {
+    border: 2px solid #FFD700;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.7);
+  }
+  .table-card.unli-order .status {
+      color: #FFD700;
+      font-weight: 600;
+  }
+
+  /* --- MODAL --- */
+  .modal {
+    display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%;
+    overflow: auto; background-color: rgba(0,0,0,0.7); justify-content: center; align-items: center;
+  }
+  .modal-content {
+    background: #242424; padding: 30px; border-radius: 10px; border: 1px solid #333;
+    text-align: center; width: 90%; max-width: 500px;
+  }
+  .modal-buttons { display: flex; gap: 20px; margin-top: 20px; }
+  .modal-buttons .btn {
+    flex: 1; padding: 20px; font-size: 18px; border-radius: 8px;
+    font-weight: 600; cursor: pointer; border: none; color: white;
+  }
+  .modal-buttons .regular { background: #3498db; }
+  .modal-buttons .unli { background: #e67e22; }
+
+  /* --- USER DROPDOWN --- */
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .user-icon {
+    color: #ffffff;
+    font-size: 18px;
+  }
+  .username {
+    font-weight: 600;
+    color: #fff;
+    font-size: 14px;
+  }
+  .arrow {
+    font-size: 12px;
+    color: #ddd;
+  }
+  .dropdown {
+    position: relative;
+    display: inline-block;
+  }
+  .dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    background-color: #3D2B1F;
+    min-width: 120px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+    border: 1px solid #8B4513;
+    border-radius: 6px;
+    z-index: 1;
+  }
+  .dropdown-content a {
+    color: #fff;
+    padding: 10px 14px;
+    text-decoration: none;
+    display: block;
+    font-size: 14px;
+  }
+  .dropdown-content a:hover {
+    background-color: #f66a11;
+  }
+  .dropdown.show .dropdown-content {
+    display: block;
+  }
+</style>
+</head>
+
+<body>
+
+<div id="orderTypeModal" class="modal">
+  <div class="modal-content">
+    <h2>Select Order Type</h2>
+    <p>How will this table be ordering?</p>
+    <div class="modal-buttons">
+      <button class="btn regular" id="modalRegularBtn">🍽️ Regular Order</button>
+      <button class="btn unli" id="modalUnliBtn">🍽️ Buffet Unli Order</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <span>PALUTO Seafood Grill & Restaurant</span>
+  <div class="dropdown">
+    <div class="user-info" onclick="toggleDropdown()">
+      <i class="fa-solid fa-user user-icon"></i>
+      <span class="username">{{ session['name'] }}</span>
+      <span class="arrow">▼</span>
+    </div>
+    <div id="userDropdown" class="dropdown-content">
+      <a href="/logout">Logout</a>
+    </div>
+  </div>
+</header>
+
+  {% if opening_cash %}
+  <div style="margin: 10px 0; color: #ffffff; font-weight: 600;">
+    Opening Cash for Today: ₱{{ '%.2f' | format(opening_cash['opening_amount']) }}
+  </div>
+{% endif %}
+
+
+<div class="subtitle">Iloilo City's Finest • Select a Table or Kubo</div>
+
+<div class="grid">
+  {% for t in tables %}
+  <div class="table-card {% if t.status != 'AVAILABLE' %}occupied{% endif %} {% if t.order_mode == 'unli' %}unli-order{% endif %}">
+    <div class="table-name">
+      {% if t.table_id <= 50 %}
+        🦀 Table {{ t.table_id }}
+      {% else %}
+        🛖 Kubo {{ t.table_id - 100 }}
+      {% endif %}
+    </div>
+    <div class="status">
+      {% if t.status != 'AVAILABLE' %}
+        <strong>{{ t.order_mode | capitalize }}</strong><br>
+        TXN {{ t.transaction_id }}
+      {% else %}
+        Available
+      {% endif %}
+    </div>
+    {% if t.status != 'AVAILABLE' %}
+      <button class="btn pay" onclick="window.location.href='/payment/{{ t.transaction_id }}'">💰 Pay Now</button>
+    {% else %}
+      <button class="btn start" onclick="showOrderTypeModal('{{ t.table_id }}')">🔥 Start Order</button>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<footer>PALUTO POS © 2025</footer>
+<form id="startOrderForm" action="/start_order" method="POST" style="display: none;">
+  <input type="hidden" name="table_id" id="formTableId">
+  <input type="hidden" name="order_type" id="formOrderType">
+</form>
+
+<script>
+  const modal = document.getElementById('orderTypeModal');
+  const regularBtn = document.getElementById('modalRegularBtn');
+  const unliBtn = document.getElementById('modalUnliBtn');
+  const startOrderForm = document.getElementById('startOrderForm');
+  const formTableId = document.getElementById('formTableId');
+  const formOrderType = document.getElementById('formOrderType');
+
+  function showOrderTypeModal(tableId) {
+    regularBtn.onclick = () => {
+      formTableId.value = tableId;
+      formOrderType.value = 'regular';
+      startOrderForm.submit();
+    };
+    unliBtn.onclick = () => {
+      formTableId.value = tableId;
+      formOrderType.value = 'unli';
+      startOrderForm.submit();
+    };
+    modal.style.display = 'flex';
+  }
+
+  window.onclick = function(event) {
+    if (event.target == modal) {
+      modal.style.display = "none";
+    }
+  }
+
+  function toggleDropdown() {
+    const dropdown = document.querySelector('.dropdown');
+    dropdown.classList.toggle('show');
+  }
+
+  window.addEventListener('click', function(event) {
+    if (!event.target.closest('.dropdown')) {
+      document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('show'));
+    }
+  });
+</script>
+
+</body>
+</html>

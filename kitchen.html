@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Kitchen Display - PALUTO POS</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --background-dark: #1A1A1A; --surface-dark: #242424; --border-color: #333333; --text-primary: #F5F5F5; --text-secondary: #A0A0A0; --accent-orange: #f66a11; }
+  body { font-family: 'Poppins', sans-serif; margin: 0; background: var(--background-dark); color: var(--text-primary); height: 100vh; display: flex; flex-direction: column; }
+  .header { padding: 15px; background: var(--surface-dark); text-align: center; font-size: 24px; font-weight: 600; border-bottom: 1px solid var(--border-color); }
+  .kds-container { display: flex; flex: 1; overflow: hidden; }
+  .column { flex: 1; display: flex; flex-direction: column; border-left: 1px solid var(--border-color); }
+  .column:first-child { border-left: none; }
+  .column-header { padding: 12px; background: #000; text-align: center; font-weight: 600; font-size: 18px; position: sticky; top: 0; }
+  .column-body { flex: 1; overflow-y: auto; padding: 15px; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; align-content: start; }
+  .order-card { background: var(--surface-dark); border-radius: 8px; padding: 15px; border: 1px solid var(--border-color); display: flex; flex-direction: column; }
+  .card-header { display: flex; justify-content: space-between; font-weight: 600; font-size: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 10px; }
+  .order-items { list-style: none; padding: 0; margin: 0 0 15px 0; flex: 1; }
+  .order-items li { padding: 4px 0; }
+  .btn { width: 100%; border: none; border-radius: 6px; padding: 12px; font-size: 16px; font-weight: 600; cursor: pointer; color: white; }
+  .btn-ready { background: #2980b9; }
+  .btn-served { background: #27ae60; }
+</style>
+</head>
+<body>
+
+<div class="header">PALUTO KITCHEN DISPLAY</div>
+<div class="kds-container">
+  <div class="column">
+    <div class="column-header">PREPARING</div>
+    <div class="column-body" id="preparing-column"></div>
+  </div>
+  <div class="column">
+    <div class="column-header">READY TO SERVE</div>
+    <div class="column-body" id="ready-column"></div>
+  </div>
+</div>
+
+<script>
+  // Fetch and render orders every 5 seconds
+  setInterval(fetchOrders, 5000);
+  document.addEventListener('DOMContentLoaded', fetchOrders);
+
+  async function fetchOrders() {
+    try {
+      const response = await fetch('/api/kitchen_orders');
+      const orders = await response.json();
+      renderOrders(orders);
+    } catch (error) {
+      console.error("Failed to fetch kitchen orders:", error);
+    }
+  }
+
+  function renderOrders(orders) {
+    const preparingCol = document.getElementById('preparing-column');
+    const readyCol = document.getElementById('ready-column');
+    preparingCol.innerHTML = '';
+    readyCol.innerHTML = '';
+
+    for (const txn_id in orders) {
+      const order = orders[txn_id];
+      const itemsHtml = order.items.map(item => `<li>- ${item}</li>`).join('');
+      const isKubo = order.table_id > 100;
+      const tableLabel = isKubo ? `Kubo ${order.table_id - 100}` : `Table ${order.table_id}`;
+
+      if (order.status === 'ACTIVE') {
+        preparingCol.innerHTML += `
+          <div class="order-card">
+            <div class="card-header">
+              <span>${tableLabel}</span>
+              <span>${txn_id}</span>
+            </div>
+            <ul class="order-items">${itemsHtml}</ul>
+            <button class="btn btn-ready" onclick="updateStatus('${txn_id}', 'READY')">Mark as Ready</button>
+          </div>
+        `;
+      } else if (order.status === 'READY') {
+        readyCol.innerHTML += `
+          <div class="order-card">
+            <div class="card-header">
+              <span>${tableLabel}</span>
+              <span>${txn_id}</span>
+            </div>
+            <ul class="order-items">${itemsHtml}</ul>
+            <button class="btn btn-served" onclick="updateStatus('${txn_id}', 'SERVED')">Mark as Served</button>
+          </div>
+        `;
+      }
+    }
+  }
+
+  async function updateStatus(txn_id, newStatus) {
+    try {
+      await fetch(`/api/update_order_status/${txn_id}/${newStatus}`, { method: 'POST' });
+      fetchOrders(); // Immediately refresh the view after updating
+    } catch (error) {
+      console.error(`Failed to update status for ${txn_id}:`, error);
+    }
+  }
+</script>
+</body>
+</html>

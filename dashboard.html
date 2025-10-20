@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin Dashboard - PALUTO POS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --background-dark: #1A1A1A;
+    --surface-dark: #242424;
+    --border-color: #333333;
+    --text-primary: #F5F5F5;
+    --text-secondary: #A0A0A0;
+    --accent-orange: #f66a11;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Poppins', sans-serif;
+    margin: 0;
+    background: var(--background-dark);
+    color: var(--text-primary);
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+  }
+  .sidebar {
+    width: 260px;
+    background: var(--surface-dark);
+    border-right: 1px solid var(--border-color);
+    padding: 20px 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar-header {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 1px;
+    text-align: center;
+    padding: 0 20px 20px 20px;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .sidebar-nav { list-style: none; padding: 0; margin: 20px 0; }
+  .sidebar-nav li {
+    padding: 15px 25px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-weight: 500;
+    transition: 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+  }
+  .sidebar-nav li:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
+  .sidebar-nav li.active { background: var(--accent-orange); color: #fff; }
+  
+  .main-content { flex: 1; padding: 30px; overflow-y: auto; }
+  .content-panel { display: none; }
+  .content-panel.active { display: block; }
+
+  .page-header {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 1px;
+    margin: 0 0 25px 0;
+    font-weight: 400;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* Header actions */
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* User dropdown styles */
+  .dropdown {
+    position: relative;
+    display: inline-block;
+  }
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .user-icon {
+    font-size: 18px;
+    color: #ffffff;
+  }
+  .username {
+    font-weight: 600;
+    color: #fff;
+    font-size: 14px;
+  }
+  .arrow {
+    font-size: 12px;
+    color: #aaa;
+  }
+  .dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    background-color: var(--surface-dark);
+    min-width: 120px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    z-index: 1;
+  }
+  .dropdown-content a {
+    color: #fff;
+    padding: 10px 14px;
+    text-decoration: none;
+    display: block;
+    font-size: 14px;
+  }
+  .dropdown-content a:hover {
+    background-color: #f66a11;
+  }
+  .dropdown.show .dropdown-content {
+    display: block;
+  }
+
+  /* Cards and tables */
+  .grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+  .card { background: var(--surface-dark); border: 1px solid var(--border-color); padding: 20px; border-radius: 8px; }
+  .card-title { color: var(--text-secondary); margin: 0 0 10px 0; font-size: 14px; font-weight: 500; }
+  .card-value { font-size: 28px; font-weight: 600; margin: 0; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 12px 15px; border-bottom: 1px solid var(--border-color); text-align: left; font-size: 14px; }
+  th { font-weight: 600; color: var(--text-secondary); }
+
+  .btn {
+    background: var(--accent-orange);
+    color: #fff;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+</style>
+</head>
+
+<body>
+  <div class="sidebar">
+    <div class="sidebar-header">PALUTO ADMIN</div>
+    <ul class="sidebar-nav">
+      <li class="active" data-tab="dashboard">🏠 Dashboard</li>
+      <li data-tab="sales_analytics">📈 Sales Analytics</li>
+      <li data-tab="exports">📤 Exports</li>
+    </ul>
+  </div>
+
+  <div class="main-content">
+    <div id="dashboard" class="content-panel active">
+      <div class="page-header">
+        <h1>Dashboard</h1>
+        <div class="header-actions">
+          <button class="btn" onclick="fetchAnalyticsData()">Refresh Data</button>
+          <div class="dropdown">
+            <div class="user-info" onclick="toggleDropdown()">
+              <i class="fa-solid fa-user user-icon"></i>
+              <span class="username">{{ session['name'] }}</span>
+              <span class="arrow">▼</span>
+            </div>
+            <div id="userDropdown" class="dropdown-content">
+              <a href="/logout">Logout</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-container">
+        <div class="card"><p class="card-title">Total Sales (Today)</p><h2 class="card-value" id="total-sales-today">--</h2></div>
+        <div class="card"><p class="card-title">Top Selling Dish</p><h2 class="card-value" id="top-selling-dish">--</h2></div>
+        <div class="card"><p class="card-title">Total Orders Today</p><h2 class="card-value" id="total-orders-today">--</h2></div>
+      </div>
+    </div>
+
+    <div id="sales_analytics" class="content-panel">
+      <div class="page-header">
+        <h1>Sales Analytics</h1>
+        <div class="header-actions">
+          <button class="btn" onclick="fetchAnalyticsData()">Refresh Data</button>
+          <div class="dropdown">
+            <div class="user-info" onclick="toggleDropdown()">
+              <i class="fa-solid fa-user user-icon"></i>
+              <span class="username">{{ session['name'] }}</span>
+              <span class="arrow">▼</span>
+            </div>
+            <div id="userDropdown" class="dropdown-content">
+              <a href="/logout">Logout</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <h3>Sales Trend (Last 7 Days)</h3>
+      <div class="card"><canvas id="salesTrendChart"></canvas></div>
+      <div class="grid-container" style="margin-top: 25px;">
+        <div class="card"><h3>Peak Hours (Today)</h3><canvas id="hourlySalesChart"></canvas></div>
+        <div class="card"><h3>Sales by Category</h3><canvas id="categorySalesChart"></canvas></div>
+      </div>
+      <h3 style="margin-top: 25px;">Recent Transactions</h3>
+      <div class="card">
+        <table>
+          <thead><tr><th>Time</th><th>TXN ID</th><th>Item</th><th style="text-align: right;">Subtotal</th></tr></thead>
+          <tbody id="detailedSalesTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleDropdown() {
+      const dropdown = document.querySelector('.dropdown');
+      dropdown.classList.toggle('show');
+    }
+
+    window.onclick = function(event) {
+      if (!event.target.closest('.dropdown')) {
+        document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('show'));
+      }
+    };
+
+    let salesTrendChart, hourlySalesChart, categorySalesChart;
+
+    document.addEventListener('DOMContentLoaded', function() {
+      setupTabs();
+      initializeCharts();
+      fetchAnalyticsData();
+    });
+
+    function setupTabs() {
+      const tabs = document.querySelectorAll('.sidebar-nav li');
+      const panels = document.querySelectorAll('.content-panel');
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          tabs.forEach(t => t.classList.remove('active'));
+          panels.forEach(p => p.classList.remove('active'));
+          tab.classList.add('active');
+          const panelId = tab.getAttribute('data-tab');
+          document.getElementById(panelId).classList.add('active');
+          if (panelId === 'sales_analytics' || panelId === 'dashboard') fetchAnalyticsData();
+        });
+      });
+    }
+
+    async function fetchAnalyticsData() {
+      try {
+        const response = await fetch('/api/sales_analytics');
+        if (!response.ok) throw new Error('Network response was not ok');
+        const data = await response.json();
+        updateDashboardCards(data.dashboard_cards);
+        updateTrendlineChart(data.trendline);
+        updateHourlyChart(data.hourly);
+        updateCategoryChart(data.summary);
+        updateDetailedSalesTable(data.detailed);
+      } catch (error) {
+        console.error("Failed to fetch analytics data:", error);
+      }
+    }
+
+    function updateDashboardCards(cardData) {
+      document.getElementById('total-sales-today').textContent = `₱${cardData.total_sales_today.toFixed(2)}`;
+      document.getElementById('top-selling-dish').textContent = cardData.top_selling_dish;
+      document.getElementById('total-orders-today').textContent = cardData.total_orders_today;
+    }
+
+    function updateTrendlineChart(trendData) {
+      salesTrendChart.data.labels = trendData.labels;
+      salesTrendChart.data.datasets[0].data = trendData.data;
+      salesTrendChart.update();
+    }
+
+    function updateHourlyChart(hourlyData) {
+      hourlySalesChart.data.labels = hourlyData.labels;
+      hourlySalesChart.data.datasets[0].data = hourlyData.data;
+      hourlySalesChart.update();
+    }
+
+    function updateCategoryChart(summaryData) {
+      categorySalesChart.data.labels = summaryData.labels;
+      categorySalesChart.data.datasets[0].data = summaryData.data;
+      categorySalesChart.update();
+    }
+
+    function updateDetailedSalesTable(detailedData) {
+      const tableBody = document.getElementById('detailedSalesTableBody');
+      tableBody.innerHTML = '';
+      detailedData.forEach(row => {
+        const nameParts = [row.type, row.variety_1, row.variety_2, row.state_1, row.state_2, row.luto];
+        const fullName = nameParts.filter(part => part).join(' ');
+        const time = new Date(row.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        tableBody.innerHTML += `
+          <tr>
+              <td>${time}</td>
+              <td>${row.transaction_id}</td>
+              <td>${fullName}</td>
+              <td style="text-align: right;">₱${row.subtotal.toFixed(2)}</td>
+          </tr>`;
+      });
+    }
+
+    function initializeCharts() {
+      const chartTextColor = 'rgba(245, 245, 245, 0.8)';
+      const chartGridColor = 'rgba(255, 255, 255, 0.1)';
+      const chartOptions = {
+        scales: { 
+            y: { beginAtZero: true, ticks: { color: chartTextColor }, grid: { color: chartGridColor } }, 
+            x: { ticks: { color: chartTextColor }, grid: { color: 'transparent' } } 
+        }, 
+        plugins: { legend: { labels: { color: chartTextColor } } }
+      };
+      salesTrendChart = new Chart(document.getElementById('salesTrendChart'), {
+        type: 'line', data: { labels: [], datasets: [{ label: 'Sales', data: [], borderColor: '#f66a11', tension: 0.4 }] }, options: chartOptions
+      });
+      hourlySalesChart = new Chart(document.getElementById('hourlySalesChart'), {
+        type: 'bar', data: { labels: [], datasets: [{ label: 'Sales', data: [], backgroundColor: '#f66a11' }] }, options: {...chartOptions, plugins: {legend: {display: false}}}
+      });
+      categorySalesChart = new Chart(document.getElementById('categorySalesChart'), {
+        type: 'doughnut', data: { labels: [], datasets: [{ label: 'Sales', data: [], backgroundColor: ['#f66a11', '#e05e0b', '#c4550a', '#a84c09', '#8c4308'] }] }, options: {plugins: {legend: {position: 'right', labels: {color: chartTextColor}}}}
+      });
+    }
+  </script>
+</body>
+</html>

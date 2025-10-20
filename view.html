@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ready to Serve - PALUTO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Poppins:wght@700&display=swap" rel="stylesheet">
+<style>
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  body {
+    margin: 0;
+    background-color: #3D2B1F; /* Dark wood base */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill='%232c1f17' fill-opacity='0.4'%3E%3Crect x='0' y='0' width='100' height='1'/%3E%3Crect x='0' y='50' width='100' height='1'/%3E%3C/g%3E%3C/svg%3E");
+    color: #fff;
+    font-family: 'Poppins', sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .header {
+    font-family: 'Bebas Neue', sans-serif;
+    padding: 15px;
+    background: #8B4513; /* Saddle brown wood */
+    color: #FFD700; /* Gold */
+    text-align: center;
+    font-size: 4vw;
+    letter-spacing: 5px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.6);
+    border-bottom: 4px solid #6F4E37;
+  }
+
+  .grid-container {
+    flex: 1;
+    padding: 2vw;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2vw;
+    align-content: start;
+  }
+
+  .ready-card {
+    background: linear-gradient(145deg, #ffd700, #f66a11);
+    color: #000;
+    border-radius: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 4/3;
+    animation: fadeIn 0.5s ease-out;
+    border: 4px solid #fff;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+  }
+  
+  .card-label {
+    font-size: 2.5vw;
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+  
+  .card-number {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 8vw;
+    line-height: 1;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">NOW SERVING</div>
+<div class="grid-container" id="ready-grid">
+  </div>
+
+<script>
+  setInterval(fetchReadyOrders, 5000);
+  document.addEventListener('DOMContentLoaded', fetchReadyOrders);
+
+  async function fetchReadyOrders() {
+    try {
+      const response = await fetch('/api/kitchen_orders');
+      const orders = await response.json();
+      renderReadyOrders(orders);
+    } catch (error) {
+      console.error("Failed to fetch orders:", error);
+    }
+  }
+
+  function renderReadyOrders(orders) {
+    const grid = document.getElementById('ready-grid');
+    
+    // Create a set of currently displayed table IDs for comparison
+    const displayedTables = new Set([...grid.children].map(child => child.dataset.tableId));
+    const readyTables = new Set();
+
+    for (const txn_id in orders) {
+      const order = orders[txn_id];
+      if (order.status === 'READY') {
+        const tableId = String(order.table_id);
+        readyTables.add(tableId);
+
+        // If the card is not already displayed, add it
+        if (!displayedTables.has(tableId)) {
+            const isKubo = order.table_id > 100;
+            const tableLabel = isKubo ? `Kubo` : `Table`;
+            const tableNumber = isKubo ? order.table_id - 100 : order.table_id;
+            
+            const card = document.createElement('div');
+            card.className = 'ready-card';
+            card.dataset.tableId = tableId;
+            card.innerHTML = `
+                <div class="card-label">${tableLabel}</div>
+                <div class="card-number">${tableNumber}</div>
+            `;
+            grid.appendChild(card);
+        }
+      }
+    }
+
+    // Remove cards that are no longer in the "READY" state
+    displayedTables.forEach(tableId => {
+        if (!readyTables.has(tableId)) {
+            const cardToRemove = grid.querySelector(`[data-table-id='${tableId}']`);
+            if (cardToRemove) {
+                grid.removeChild(cardToRemove);
+            }
+        }
+    });
+  }
+</script>
+</body>
+</html>
