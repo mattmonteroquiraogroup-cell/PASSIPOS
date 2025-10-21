@@ -102,9 +102,8 @@
 
 <header>
     <div>Payment | TXN: <b>{{ txn_id }}</b> | Table: <b>{{ sales[0].table_id if sales }}</b> | Type: <b style="text-transform: capitalize;">{{ order_type }}</b></div>
-    <button class="btn-header" onclick="window.location.href='/'">← Back to Tables</button>
+    <button class="btn-header" onclick="window.location.href='/tables'">← Back to Tables</button>
 </header>
-
 <div class="main-container">
     <div class="table-container">
         <table>
@@ -253,166 +252,89 @@
 </div>
 
 <script>
-    const txn_id = "{{ txn_id }}";
-    const total_discount_initial = {{ total_discount }};
-    const remaining_balance_initial = parseFloat({{ remaining }});
-    let currentDiscountType = null; 
+const txn_id = "{{ txn_id }}";
+let remaining_balance = parseFloat({{ remaining }});
+let total_bill = parseFloat({{ total }});
 
-    document.addEventListener('DOMContentLoaded', () => {
-        // Initialize the input field with the remaining amount for easy full payment
-        document.getElementById('payment-amount').value = remaining_balance_initial.toFixed(2);
-        checkIfComplete(remaining_balance_initial);
-        manageDiscountButtons();
-    });
+// 🟢 Initialize page
+document.addEventListener("DOMContentLoaded", () => {
+    const paymentInput = document.getElementById('payment-amount');
+    const changeLabel = document.createElement('div');
+    changeLabel.id = "change-display";
+    changeLabel.style.textAlign = "right";
+    changeLabel.style.fontSize = "20px";
+    changeLabel.style.marginTop = "8px";
+    changeLabel.style.fontWeight = "700";
+    changeLabel.style.color = "#2ecc71";
+    paymentInput.insertAdjacentElement("afterend", changeLabel);
 
-    // Helper function for reliable float calculation
-    function precise(value) {
-        return Math.round(value * 100) / 100;
+    paymentInput.addEventListener("input", updateChangeDisplay);
+    updateChangeDisplay();
+});
+
+// 🧮 Show change dynamically
+function updateChangeDisplay() {
+    const amount = parseFloat(document.getElementById("payment-amount").value) || 0;
+    const change = amount - remaining_balance;
+
+    const changeLabel = document.getElementById("change-display");
+    if (change > 0) {
+        changeLabel.innerHTML = `Change: ₱${change.toFixed(2)}`;
+        changeLabel.style.color = "#2ecc71"; // green
+    } else {
+        changeLabel.innerHTML = `Change: ₱0.00`;
+        changeLabel.style.color = "#aaaaaa"; // gray
+    }
+}
+
+// 💵 Record payment
+async function recordPayment(method) {
+    const amount = parseFloat(document.getElementById("payment-amount").value);
+    if (isNaN(amount) || amount <= 0) {
+        alert("Please enter a valid amount greater than zero.");
+        return;
     }
 
-    function manageDiscountButtons() {
-        const isDiscounted = total_discount_initial > 0;
-        const buttonsToDisable = ['btn-senior', 'btn-pwd', 'btn-employee', 'btn-custom'];
-        
-        buttonsToDisable.forEach(id => {
-            const btn = document.getElementById(id);
-            if(btn) btn.disabled = isDiscounted;
+    try {
+        const res = await fetch(`/record_payment/${txn_id}`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({ amount, method })
         });
-        document.getElementById('btn-remove-discount').disabled = !isDiscounted;
-    }
 
-    // --- Discount Modal/API Functions ---
+        if (!res.ok) throw new Error("Server failed to record payment.");
+        const data = await res.json();
 
-    function openDiscountModal(type) {
-        currentDiscountType = type;
-        document.getElementById('discount-modal-overlay').style.display = 'flex';
-        document.getElementById('sc-pwd-inputs').style.display = 'none';
-        document.getElementById('custom-inputs').style.display = 'none';
-
-        if (type === 'senior' || type === 'pwd') {
-            document.getElementById('modal-title').textContent = `Apply ${type.toUpperCase()} Discount`;
-            document.getElementById('discount-type-label').textContent = type.toUpperCase();
-            document.getElementById('sc-pwd-inputs').style.display = 'block';
-        } else if (type === 'custom') {
-            document.getElementById('modal-title').textContent = 'Apply Custom Percentage';
-            document.getElementById('custom-inputs').style.display = 'block';
-        }
-    }
-
-    function closeDiscountModal() {
-        document.getElementById('discount-modal-overlay').style.display = 'none';
-        currentDiscountType = null;
-    }
-
-    function confirmDiscount() {
-        const payload = { discount_type: currentDiscountType };
-
-        if (currentDiscountType === 'senior' || currentDiscountType === 'pwd') {
-            const total_diners = parseInt(document.getElementById('total-diners').value);
-            const headcount = parseInt(document.getElementById('headcount').value);
+        if (data.success) {
+            alert(`Payment successful!\nApplied: ₱${data.applied_amount.toFixed(2)}\nChange: ₱${data.change.toFixed(2)}`);
             
-            if (isNaN(total_diners) || total_diners < 1) { alert("Total diners must be 1 or more."); return; }
-            if (isNaN(headcount) || headcount < 0) { alert("Discount card count cannot be negative."); return; }
-            if (headcount > total_diners) { alert("Discount card count cannot exceed total diners."); return; }
-            
-            payload.total_diners = total_diners;
-            payload.headcount = headcount;
-        } else if (currentDiscountType === 'custom') {
-            const percentage = parseFloat(document.getElementById('custom-percentage').value);
-            if (isNaN(percentage) || percentage < 0 || percentage > 100) { alert("Percentage must be between 0 and 100."); return; }
-            payload.percentage = percentage;
-        }
-        
-        closeDiscountModal();
-        applyDiscount(payload);
-    }
-
-    async function applyDiscount(payload) {
-        try {
-            const res = await fetch(`/apply_discount/${txn_id}`, {
-                method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (!res.ok) { 
-                console.error("Discount Error:", data.error);
-                alert("Error applying discount: " + (data.error || "Server error.")); 
+            // ✅ If the full payment is covered (change >= 0), complete the order
+            if (data.change >= 0) {
+                await completePayment();
+            } else {
+                // Partial payment — refresh display
+                window.location.reload();
             }
-            else { 
-                alert(data.message); 
-                window.location.reload(); 
-            }
-        } catch (err) { 
-            console.error("Discount application failed:", err);
-            alert("An unknown error occurred during discount application."); 
-        }
-    }
-
-    // --- Payment Functions (Finalized) ---
-
-    async function recordPayment(method, is_full_pay) {
-        let amount;
-        const remaining = remaining_balance_initial;
-        const amountInput = document.getElementById('payment-amount');
-
-        if (is_full_pay) {
-            // This case is only used if the now-removed Full Payment shortcut was pressed.
-            // Since the shortcut button is gone, this logic should technically never run, 
-            // but we keep the parameter for consistency with the button handlers below.
-            amount = remaining; 
         } else {
-            // Standard payment button (Cash/GCash/Card) was clicked, using the amount in the input field.
-            amount = parseFloat(amountInput.value);
+            alert(data.error || "Payment failed.");
         }
-        
-        // --- Floating Point Safety Check ---
-        const amount_precise = precise(amount);
-        const remaining_precise = precise(remaining);
-
-        if (isNaN(amount_precise) || amount_precise <= 0) {
-            alert("Please enter a valid amount greater than zero.");
-            return; 
-        }
-        
-        // Ensure payment doesn't exceed the remaining balance + tolerance
-        if (amount_precise > remaining_precise + 0.01) { 
-            alert(`Payment amount (₱${amount_precise.toFixed(2)}) exceeds the remaining balance (₱${remaining_precise.toFixed(2)}).`); 
-            return; 
-        }
-        // --- End Floating Point Safety Check ---
-
-        try {
-            const res = await fetch(`/record_payment/${txn_id}`, { 
-                method: "POST", headers: { "Content-Type": "application/json" }, 
-                body: JSON.stringify({ amount: amount_precise, method }) 
-            });
-            if (!res.ok) throw new Error("Server failed to record payment.");
-            window.location.reload();
-        } catch (err) { 
-            console.error("Payment failed:", err); 
-            alert("There was an error recording the payment."); 
-        }
+    } catch (err) {
+        console.error("Payment failed:", err);
+        alert("There was an error recording the payment.");
     }
-
-    function checkIfComplete(remaining) {
-        if (parseFloat(remaining) <= 0.01) { // Check for near zero balance
-            document.getElementById('payment-amount').disabled = true;
-            document.querySelectorAll('.pay-buttons button').forEach(button => { button.disabled = true; });
-            document.querySelector('.discount-section').style.display = 'none';
-            document.getElementById('complete-btn').style.display = 'block';
-        }
+}
+// ✅ Complete payment
+async function completePayment() {
+    try {
+        const res = await fetch(`/complete_payment/${txn_id}`, { method: "POST" });
+        const data = await res.json();
+        alert(data.message || "Payment successful! Table is now available.");
+        window.location.href = "/tables";
+    } catch (err) {
+        console.error("Completion failed:", err);
+        alert("Failed to complete payment.");
     }
-    
-    async function completePayment() {
-        try {
-            const res = await fetch(`/complete_payment/${txn_id}`, { method: "POST" });
-            const data = await res.json();
-            alert(data.message || "Payment successful! Table is now available.");
-            window.location.href = "/";
-        } catch (err) { 
-            console.error("Completion failed:", err);
-            alert("Failed to complete payment."); 
-        }
-    }
+}
 </script>
 </body>
 </html>

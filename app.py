@@ -9,13 +9,39 @@ app = Flask(__name__)
 app.secret_key = "super_secret_paluto_key"  # any random string
 DB = "paluto.db"
 
+# ============================================================
+# 🔹 RECEIPT (PDF GENERATION) MODULES
+# ============================================================
+from datetime import datetime
+from flask import send_file
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+import tempfile
+
+
+# New code
+import os, sys
+
+# Detect if running as .exe or script
+if getattr(sys, 'frozen', False):
+    BASE_DIR = sys._MEIPASS  # Temporary folder used by PyInstaller
+    ROOT_DIR = os.path.dirname(sys.executable)  # Folder where EXE is located
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    ROOT_DIR = BASE_DIR
+
+DB = os.path.join(ROOT_DIR, "paluto.db")
+
+
 
 # ============================================================
 # 🔹 DATABASE CONNECTION UTILITY
 # ============================================================
 def get_db():
     """Establishes and returns an SQLite database connection."""
-    conn = sqlite3.connect(DB, timeout=30, check_same_thread=False)
+    conn = sqlite3.connect(DB, timeout=5, check_same_thread=False)
     conn.row_factory = sqlite3.Row  # Return rows as dictionaries
     return conn
 
@@ -396,32 +422,230 @@ def fetch_products():
     conn.close()
     return jsonify(data)
 
-
 # ============================================================
 # 🔹 PAYMENT FUNCTIONS
 # ============================================================
 @app.route("/record_payment/<txn_id>", methods=["POST"])
 def record_payment(txn_id):
-    """Records a partial payment (Cash / GCash / Card)."""
-    data = request.get_json()
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("INSERT INTO payments (transaction_id, amount, method) VALUES (?, ?, ?)",
-                (txn_id, float(data['amount']), data['method']))
-    conn.commit()
-    conn.close()
-    return jsonify({'success': True})
+    """Records a payment but only applies up to the remaining balance; computes change."""
+    try:
+        data = request.get_json()
+        amount_given = float(data.get("amount", 0))
+        method = data.get("method", "CASH")
 
+        conn = get_db()
+        cur = conn.cursor()
 
+        # 🧮 Compute totals safely
+        cur.execute("SELECT SUM(subtotal - COALESCE(discount, 0)) FROM sales WHERE transaction_id = ?", (txn_id,))
+        total_bill = cur.fetchone()[0] or 0
+
+        cur.execute("SELECT SUM(amount) FROM payments WHERE transaction_id = ?", (txn_id,))
+        already_paid = cur.fetchone()[0] or 0
+
+        remaining = total_bill - already_paid
+        applied_amount = min(amount_given, remaining)
+        change = max(amount_given - remaining, 0)
+
+        # 💾 Save only the applied amount
+        cur.execute(
+            "INSERT INTO payments (transaction_id, amount, method) VALUES (?, ?, ?)",
+            (txn_id, applied_amount, method)
+        )
+        conn.commit()
+        conn.close()
+
+        print(f"✅ Payment recorded: txn={txn_id}, given={amount_given}, applied={applied_amount}, change={change}")
+        return jsonify({
+            "success": True,
+            "message": f"Payment recorded successfully. Change: ₱{change:.2f}",
+            "applied_amount": applied_amount,
+            "change": change
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+# ==========================
+# COMPLETE PAYMENT FUNCTION
+# ==========================
 @app.route("/complete_payment/<txn_id>", methods=["POST"])
 def complete_payment(txn_id):
-    """Marks order as PAID when fully settled."""
+    """Marks order as PAID when fully settled and prints receipt."""
     conn = get_db()
     cur = conn.cursor()
     cur.execute("UPDATE sales SET status='PAID' WHERE transaction_id=?", (txn_id,))
     conn.commit()
     conn.close()
-    return jsonify({"message": "Payment successful! Table is now available."})
+
+    # 🖨️ Print receipt and capture result message
+    result_message = print_receipt(txn_id)
+
+    return jsonify({"message": f"Payment successful! {result_message}"})
+
+
+# ============================================================
+# 🔹 PRINT RECEIPT FUNCTION (PERFECT CENTERED HEADER)
+# ============================================================
+import platform, os, textwrap
+from datetime import datetime
+from reportlab.pdfgen import canvas
+from reportlab.lib.units import mm
+
+def generate_receipt_pdf(lines, pdf_path, char_width=38, font_name="Courier", font_size=7.0, margin_mm=10.5):
+    """
+    Improved version: Centers entire receipt content evenly on paper.
+    - <C> still explicitly centers header text
+    - Non-<C> lines (items/totals) are horizontally centered as a block
+    - Works perfectly for 58mm & 80mm printers
+    """
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.units import mm
+    import textwrap
+
+    width_mm = 75  # near full printable width for 58mm roll
+    width_pt = width_mm * mm
+    line_height = font_size * 1.22
+    total_lines = sum(len(textwrap.wrap(line.replace("<C>", ""), char_width)) for line in lines) + 12
+    height_pt = (margin_mm * mm * 2) + (total_lines * line_height)
+
+    c = canvas.Canvas(pdf_path, pagesize=(width_pt, height_pt))
+    c.setFont(font_name, font_size)
+
+    y = height_pt - (margin_mm * mm)
+
+    for line in lines:
+        wrapped = textwrap.wrap(line, char_width)
+        for wrapped_line in wrapped:
+            # Header or centered line (manual <C> tag)
+            if wrapped_line.startswith("<C>"):
+                text = wrapped_line.replace("<C>", "").strip()
+                text_width = c.stringWidth(text, font_name, font_size)
+                c.drawString((width_pt - text_width) / 2, y, text)
+            else:
+                # NEW: auto-center non-<C> lines (body/totals)
+                text_width = c.stringWidth(wrapped_line, font_name, font_size)
+                c.drawString((width_pt - text_width) / 2, y, wrapped_line)
+            y -= line_height
+
+    c.showPage()
+    c.save()
+    return pdf_path
+
+
+
+def print_receipt(txn_id):
+    """
+    Generates PALUTO-style TEMPORARY INVOICE receipt.
+    """
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+
+        # === Fetch Data ===
+        cur.execute("""
+            SELECT s.quantity, s.weight_in_kg, s.subtotal, s.discount, s.total,
+                   p.variety_1, p.variety_2, p.luto, p.uom, p.price
+            FROM sales s
+            LEFT JOIN products p ON s.product_id = p.id
+            WHERE s.transaction_id = ?
+        """, (txn_id,))
+        items = cur.fetchall()
+
+        cur.execute("SELECT SUM(amount) FROM payments WHERE transaction_id = ?", (txn_id,))
+        paid = cur.fetchone()[0] or 0.0
+
+        cur.execute("SELECT SUM(subtotal - COALESCE(discount,0)) FROM sales WHERE transaction_id = ?", (txn_id,))
+        total = cur.fetchone()[0] or 0.0
+        conn.close()
+
+        change = max(paid - total, 0.0)
+        vatable = total / 1.12 if total > 0 else 0.0
+        vat_amt = total - vatable
+        now = datetime.now().strftime("%m/%d/%Y %I:%M:%S %p")
+
+        # === Header (Centered) ===
+        lines = [
+            "<C>PALUTO SEAFOOD GRILL",
+            "<C>& RESTAURANT",
+            "<C>- Passi Branch -",
+            "<C>PIGGLY FOODS CORP.",
+            "<C>TIN #: 010-748-236-00004",
+            "<C>Sablogon, Passi City,",
+            "<C>Iloilo",
+            "",
+            "<C>TEMPORARY INVOICE",
+            "-" * 38,
+            f"{'QTY':<5}{'DESC':<23}{'AMT':>10}",
+            "-" * 38
+        ]
+
+        # === Items ===
+        for r in items:
+            name = " ".join(filter(None, [r["variety_1"], r["variety_2"], r["luto"]]))
+            qty = f"{int(r['quantity'])}" if (r["uom"] or "").upper() == "SERVE" else f"{r['weight_in_kg']*1000:.0f}g"
+            subtotal = r["subtotal"]
+
+            wrapped = textwrap.wrap(name, 23)
+            lines.append(f"{qty:<5}{wrapped[0]:<23}{format(subtotal, '.2f'):>10}")
+            for w in wrapped[1:]:
+                lines.append(f"{'':<5}{w:<23}{'':>10}")
+
+        # === Footer ===
+        lines += [
+            "-" * 38,
+            f"{'TOTAL:':<27}{format(total, '.2f'):>11}",
+            "-" * 38,
+            f"{'TOTAL:':<27}{format(total, '.2f'):>11}",
+            f"{'AMT. TENDERED:':<27}{format(paid, '.2f'):>11}",
+            f"{'CHANGE:':<27}{format(change, '.2f'):>11}",
+            "-" * 38,
+            f"{'CUSTOMER:':<27}",
+            f"{'ADDRESS:':<27}",
+            f"{'TIN:':<27}",
+            f"{'B. STYLE:':<27}",
+            "-" * 38,
+            f"{'VATABLE SALES:':<27}{format(vatable, '.2f'):>11}",
+            f"{'VAT AMOUNT:':<27}{format(vat_amt, '.2f'):>11}",
+            f"{'VAT EXEMPT SALES:':<27}{'0.00':>11}",
+            "-" * 38,
+            f"{'NO. OF ITEM(S):':<27}{len(items):>11}",
+            f"TABLE #: {session.get('table_id', '')}",
+            f"CASHIER: {session.get('name', '')}",
+            "-" * 38,
+            "",
+            "<C>THIS SERVES AS TEMPORARY",
+            "<C>INVOICE",
+            f"<C>{now}",
+            ""
+        ]
+
+        # === Generate PDF ===
+        pdf_filename = os.path.join(ROOT_DIR, f"receipt_{txn_id}.pdf")
+        generate_receipt_pdf(lines, pdf_filename, char_width=38, font_size=7.0)
+
+        # === Print / Save ===
+        current_os = platform.system().lower()
+        if "windows" in current_os:
+            import win32print, win32api
+            printer_name = win32print.GetDefaultPrinter() or ""
+            if "microsoft print to pdf" in printer_name.lower():
+                print(f"⚠️ No physical printer detected. PDF saved: {pdf_filename}")
+                return f"⚠️ No printer detected. PDF saved as {pdf_filename}"
+            else:
+                try:
+                    win32api.ShellExecute(0, "print", pdf_filename, f'"{printer_name}"', ".", 0)
+                    return f"✅ Receipt printed on: {printer_name}"
+                except Exception as e:
+                    return f"❌ Print failed: {e}"
+        else:
+            return f"⚠️ PDF saved: {pdf_filename} (printing not implemented on this OS)."
+
+    except Exception as ex:
+        print("PRINT ERROR:", ex)
+        return f"❌ Error printing: {ex}"
+
 
 
 # ============================================================
